@@ -3,6 +3,9 @@
 import socket
 import threading
 
+# In-memory store to hold key-value pairs
+data_store = {}
+
 
 def handle_client(client_socket):
     try:
@@ -27,7 +30,28 @@ def handle_client(client_socket):
                 response = f"${len(message)}\r\n{message}\r\n"
                 client_socket.sendall(response.encode('utf-8'))
 
+            # Process SET command
+            elif data_str.startswith("*3") and "SET" in data_str.upper():
+                parts = data_str.split("\r\n")
+                key = parts[4]
+                value = parts[6]
+                data_store[key] = value
+                response = "+OK\r\n"
+                client_socket.sendall(response.encode('utf-8'))
+
+            # Process GET command
+            elif data_str.startswith("*2") and "GET" in data_str.upper():
+                parts = data_str.split("\r\n")
+                key = parts[4]
+                value = data_store.get(key)
+                if value is not None:
+                    response = f"${len(value)}\r\n{value}\r\n"
+                else:
+                    response = "$-1\r\n"
+                client_socket.sendall(response.encode('utf-8'))
+
             else:
+                print("Unexpected data format received.")
                 break  # For simplicity, break on unrecognized commands or unexpected format
 
     except OSError as e:
