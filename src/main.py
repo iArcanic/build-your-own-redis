@@ -2,13 +2,11 @@
 
 import socket
 
-from config import *
-
 
 def main():
     # Create a TCP/IP socket
-    server_socket = socket.create_server((REDIS_SERVER_HOST, REDIS_SERVER_PORT), reuse_port=True)
-    print(f"Redis server is listening on port {REDIS_SERVER_PORT}")
+    server_socket = socket.create_server(("localhost", 6379), reuse_port=True)
+    print("Redis server is listening on port 6379")
 
     while True:
         client_socket, client_address = server_socket.accept()
