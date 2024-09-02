@@ -38,3 +38,4 @@ def test_set_get(start_server):
         s.sendall(get_command.encode('utf-8'))
         get_response = s.recv(1024)
         assert get_response.decode('utf-8') == "$-1\r\n"
+        

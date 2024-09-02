@@ -2,9 +2,11 @@
 
 import socket
 import threading
+import time
 
-# In-memory store to hold key-value pairs
+# Data store to keep track of keys, values, and expiry times
 data_store = {}
+expiry_store = {}
 
 
 def handle_client(client_socket):
@@ -17,37 +19,57 @@ def handle_client(client_socket):
 
             # Decode the received data to process commands
             data_str = data.decode('utf-8').strip()
+            print(f"Received data: {data_str}")
 
-            # Process PING command
-            if data_str.startswith("*1") and "PING" in data_str.upper():
+            # Process the command based on the RESP protocol
+            parts = data_str.split("\r\n")
+
+            # PING command
+            if parts[2].upper() == "PING":
                 response = "+PONG\r\n"
                 client_socket.sendall(response.encode('utf-8'))
 
-            # Process ECHO command
-            elif data_str.startswith("*2") and "ECHO" in data_str.upper():
-                # Extract the message to echo
-                message = data_str.split("\r\n")[-1]
+            # ECHO command
+            elif parts[2].upper() == "ECHO":
+                message = parts[4]
                 response = f"${len(message)}\r\n{message}\r\n"
                 client_socket.sendall(response.encode('utf-8'))
 
-            # Process SET command
-            elif data_str.startswith("*3") and "SET" in data_str.upper():
-                parts = data_str.split("\r\n")
+            # SET command
+            elif parts[2].upper() == "SET":
                 key = parts[4]
                 value = parts[6]
+                expiry = None
+
+                # Check for PX option
+                if len(parts) > 8 and parts[8].lower() == "px":
+                    expiry = int(parts[10])
+                
+                # Store the key-value pair with optional expiry
                 data_store[key] = value
+                if expiry is not None:
+                    expiry_store[key] = time.time() + (expiry / 1000.0)  # Convert milliseconds to seconds
+                else:
+                    expiry_store[key] = None  # No expiry
+
                 response = "+OK\r\n"
                 client_socket.sendall(response.encode('utf-8'))
 
-            # Process GET command
-            elif data_str.startswith("*2") and "GET" in data_str.upper():
-                parts = data_str.split("\r\n")
+            # GET command
+            elif parts[2].upper() == "GET":
                 key = parts[4]
-                value = data_store.get(key)
-                if value is not None:
+                current_time = time.time()
+                
+                # Check if the key exists and hasn't expired
+                if key in expiry_store and (expiry_store[key] is None or current_time <= expiry_store[key]):
+                    value = data_store.get(key)
                     response = f"${len(value)}\r\n{value}\r\n"
                 else:
+                    # If the key is expired or doesn't exist
+                    data_store.pop(key, None)  # Clean up expired key
+                    expiry_store.pop(key, None)
                     response = "$-1\r\n"
+                
                 client_socket.sendall(response.encode('utf-8'))
 
             else:
@@ -57,6 +79,7 @@ def handle_client(client_socket):
     except OSError as e:
         print(f"Socket error: {e}")
     finally:
+        # Close the connection
         client_socket.close()
 
 
