@@ -7,20 +7,31 @@ import threading
 def handle_client(client_socket):
     try:
         while True:
+            # Receive data from the client
             data = client_socket.recv(1024)
             if not data:
                 break  # No more data, client closed the connection
 
-            # Handle multiple PING commands in a single connection
-            while b"PING" in data:
+            # Decode the received data to process commands
+            data_str = data.decode('utf-8').strip()
+
+            # Process PING command
+            if data_str.startswith("*1") and "PING" in data_str.upper():
                 response = "+PONG\r\n"
                 client_socket.sendall(response.encode('utf-8'))
 
-                # Remove the handled command from the data
-                data = data[data.find(b"PING") + 4:]
-    except OSError:
-        # Handle any socket-related errors gracefully
-        pass
+            # Process ECHO command
+            elif data_str.startswith("*2") and "ECHO" in data_str.upper():
+                # Extract the message to echo
+                message = data_str.split("\r\n")[-1]
+                response = f"${len(message)}\r\n{message}\r\n"
+                client_socket.sendall(response.encode('utf-8'))
+
+            else:
+                break  # For simplicity, break on unrecognized commands or unexpected format
+
+    except OSError as e:
+        print(f"Socket error: {e}")
     finally:
         client_socket.close()
 

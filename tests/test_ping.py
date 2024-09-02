@@ -14,6 +14,7 @@ def start_server():
     server_thread = threading.Thread(target=main, daemon=True)
     server_thread.start()
     time.sleep(1)  # Give the server a second to start up
+    print("Redis server started.")
 
 
 def test_ping(start_server):

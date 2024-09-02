@@ -1,4 +1,4 @@
-# tests/test_multiple_pings.py
+# tests/test_echo.py
 
 import socket
 import threading
@@ -16,18 +16,22 @@ def start_server():
     print("Redis server started.")
 
 
-def test_multiple_pings(start_server):
-    """Test that the server responds to multiple PING commands with multiple +PONG."""
+def test_echo(start_server):
+    """Test that the server responds to ECHO with the provided argument."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect(("localhost", 6379))
         
-        # Send two PING commands
-        command = "*1\r\n$4\r\nPING\r\n*1\r\n$4\r\nPING\r\n"
+        # Send ECHO command with argument 'hey'
+        command = "*2\r\n$4\r\nECHO\r\n$3\r\nhey\r\n"
         s.sendall(command.encode('utf-8'))
         
-        # Read responses. We should get two +PONG responses.
+        # Read the response
         response = b""
-        while len(response) < len("+PONG\r\n+PONG\r\n"):
+        while b'\r\n' not in response:
             response += s.recv(1024)
         
-        assert response.decode('utf-8') == "+PONG\r\n+PONG\r\n"
+        print(f"Response received: {response.decode('utf-8')}")  # Debug output
+        
+        # The response should be $3\r\nhey\r\n
+        expected_response = "$3\r\nhey\r\n"
+        assert response.decode('utf-8') == expected_response
